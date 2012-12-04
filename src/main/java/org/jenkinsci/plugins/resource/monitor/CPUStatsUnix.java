@@ -4,18 +4,14 @@
  */
 package org.jenkinsci.plugins.resource.monitor;
 
-import hudson.model.ViewGroup;
 import hudson.util.ProcessTree;
 import hudson.util.ProcessTree.OSProcess;
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
-import org.jvnet.hudson.Windows;
 
 /**
  *
@@ -25,21 +21,23 @@ public class CPUStatsUnix implements PerformanceStatistics{
     
     private boolean hp;
     private int pidParent;
-    private int wholeMemory;
-    
-    public PrintStream log;
+    private int wholeMemory;   
     
     public CPUStatsUnix(int pidParent) throws IOException{
         hp = "HP-UX".equals(System.getProperty("os.name"));
         this.pidParent=pidParent;
         if(hp){
-            Process process = Runtime.getRuntime().exec("free");
+            Process process = Runtime.getRuntime().exec("machinfo | grep -i memory");
             process.getInputStream();
             BufferedReader pOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
             pOut.readLine();
             String line = pOut.readLine();
-            String[] mem = line.trim().split("\\W+");
-            this.wholeMemory = Integer.parseInt(mem[1]);
+            while(line!=null && (!line.contains("Memory"))){
+              line = pOut.readLine();
+            }
+            String mem[] = line.trim().split("\\W+");
+            int memory = Integer.parseInt(mem[1]);
+            this.wholeMemory = memory * 1025;
         }
     }
     
@@ -49,12 +47,14 @@ public class CPUStatsUnix implements PerformanceStatistics{
     }
     
      public void getStatisticMemAndCpu(PrintStream cpuData, PrintStream memData, long time) throws IOException{
-        String cmd[];
+        String cmd;
+        List<String> env = new ArrayList<String>();
         if(hp){
-            cmd =new String[]{"export UNIX95=\"\"", "ps -e -o pcpu,sz"};
+            env.add("UNIX95=\"\"");
+            cmd ="ps -e -o pcpu,sz";
         }
         else{
-            cmd =new String[]{"ps -e -o pcpu,pmem"};
+            cmd ="ps -e -o pcpu,pmem";
         }
         OSProcess proc = ProcessTree.get().get(pidParent);
         List<Integer> pids = new ArrayList<Integer>();
@@ -66,7 +66,7 @@ public class CPUStatsUnix implements PerformanceStatistics{
             pids.add(p.getPid());
         }
         pids.add(pidParent);
-        Process process = Runtime.getRuntime().exec("ps -e -o pid,pcpu,pmem");
+        Process process = Runtime.getRuntime().exec("ps -e -o pid,pcpu,pmem",env.toArray(new String[1]));
         BufferedReader pOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
         pOut.readLine();
         String line = pOut.readLine();
@@ -107,5 +107,40 @@ public class CPUStatsUnix implements PerformanceStatistics{
         memData.println(time + " " + memTotal.intValue() + " " + memPart.intValue());
         
     }
+     
+     public List<Integer> getPidsHP(int pidParent) throws IOException{
+         List<Integer> pids = new ArrayList<Integer>();
+          List<String> env = new ArrayList<String>();       
+            env.add("UNIX95=\"\"");
+            Process process = Runtime.getRuntime().exec("ps -eH",env.toArray(new String[1]));
+            BufferedReader pOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line = pOut.readLine();
+            while(line!=null){
+                String items[] = line.split("\\W+");
+                int pid = Integer.parseInt(items[0]);
+                if(pid==pidParent){
+                  addAllSubProcessPid(pOut, line, pid, pids);
+                  break;
+                }
+            }
+            return pids;
+     }
+     
+     public void addAllSubProcessPid(BufferedReader pOut, String line, int pid, List<Integer> pids) throws IOException{
+         line = line.replace(String.valueOf(pid), "");
+         line = line.trim();
+         int length = line.length() - (line.replaceAll(" ", "").length());
+         boolean hasSubProcess = true;
+         line = pOut.readLine();
+         while(hasSubProcess && line!=null){
+            String items[] = line.split("\\W+");
+            line = line.replace(String.valueOf(items[0]), "");
+            line = line.trim();
+            hasSubProcess = length< (line.length() - (line.replaceAll(" ", "").length()));
+            if(hasSubProcess){
+                pids.add(Integer.parseInt(items[0]));
+            }
+         }
+     }
     
 }

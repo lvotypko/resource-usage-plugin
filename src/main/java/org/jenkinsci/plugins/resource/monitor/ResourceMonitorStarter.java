@@ -17,11 +17,13 @@ public class ResourceMonitorStarter implements DelegatingCallable<Object, Runtim
     private String nodeName;
     private String path;
     private String type;
+    private int interval;
     
-    ResourceMonitorStarter(String nodeName, String path, String type){
+    ResourceMonitorStarter(String nodeName, String path, String type, int interval){
         this.nodeName=nodeName;
         this.path =path;
         this.type = type;
+        this.interval= interval*1000;
     }
     
     public ClassLoader getClassLoader() {
@@ -29,7 +31,7 @@ public class ResourceMonitorStarter implements DelegatingCallable<Object, Runtim
     }
 
     public Object call() throws RuntimeException {
-       ResourceMonitor monitor =  new ResourceMonitor("resource monitor " + nodeName, path, type);
+       ResourceMonitor monitor =  new ResourceMonitor("resource monitor " + nodeName, path, type, interval);
        monitor.start();
        return true;
     }

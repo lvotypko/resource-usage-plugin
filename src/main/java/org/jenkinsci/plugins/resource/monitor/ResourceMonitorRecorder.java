@@ -27,11 +27,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.resource.monitor.drow.CreateGraph;
 import org.kohsuke.stapler.StaplerRequest;
@@ -43,6 +41,32 @@ import org.kohsuke.stapler.StaplerRequest;
  * @author lucinka
  */
 public class ResourceMonitorRecorder extends Recorder{
+    
+    private int interval;
+    private String dateFormat;
+    private String timezone;
+    
+    public ResourceMonitorRecorder(int interval){
+        this.interval=interval;
+    }
+    
+    public ResourceMonitorRecorder(int interval, String dateFormat, String timezone){
+        this.interval=interval;
+        this.dateFormat=dateFormat;
+        this.timezone=timezone;
+    }
+    
+    public int getInterval(){
+        return interval;
+    }
+    
+    public String getDateFormat(){
+        return dateFormat;
+    }
+    
+    public String getTimezone(){
+        return timezone;
+    }
 
     public BuildStepMonitor getRequiredMonitorService() {
        
@@ -57,7 +81,8 @@ public class ResourceMonitorRecorder extends Recorder{
         if(computer instanceof SlaveComputer && (!((SlaveComputer)computer).isUnix()))
             type = "windows";
         try {
-            ResourceMonitorStarter starter = new ResourceMonitorStarter(computer.getDisplayName(),build.getWorkspace().getRemote(), type);
+            ResourceMonitorStarter starter = new ResourceMonitorStarter(computer.getDisplayName(),build.getWorkspace().getRemote(), type, interval);
+            listener.getLogger().println(build.getWorkspace().getRemote());
             launcher.getChannel().call(starter);
         } catch (Exception ex) {
             listener.getLogger().println("Resource monitor plugin failed to start resource usage statistics monitor");
@@ -81,16 +106,19 @@ public class ResourceMonitorRecorder extends Recorder{
             ArrayList<String> cpuRows = new ArrayList<String>();
             cpuRows.add("cpu total");
             cpuRows.add("cpu Jenkins processes");
-            creator.createImage("Cpu", new FilePath(build.getWorkspace(),"cpuStats.properties"), new File(build.getRootDir(),"cpuGraph.png"), cpuRows, false);
+            creator.createImage("Cpu", new FilePath(build.getWorkspace(),"cpuStats.properties"), new File(build.getRootDir(),"cpuGraph.png"), cpuRows, false, dateFormat, timezone);
             ArrayList<String> memRows = new ArrayList<String>();
             memRows.add("Memory total");
             memRows.add("Memory Jenkins processes");
-            creator.createImage("Memory", new FilePath(build.getWorkspace(),"memStats.properties"), new File(build.getRootDir(),"memGraph.png"), memRows,false);
+            creator.createImage("Memory", new FilePath(build.getWorkspace(),"memStats.properties"), new File(build.getRootDir(),"memGraph.png"), memRows,false, dateFormat, timezone);
             FilePath file = new FilePath(build.getWorkspace(),"diskStats.properties");
             BufferedReader out = new BufferedReader(new InputStreamReader(file.read()));
-            String partitions[] = out.readLine().split(" ");
-            List<String> diskRows = Arrays.asList(partitions);       
-            creator.createImage("Disk", new FilePath(build.getWorkspace(),"diskStats.properties"), new File(build.getRootDir(),"diskGraph.png"), diskRows,true);
+            String output = out.readLine();
+            if(output!=null){
+                String partitions[] = output.split(" ");
+                List<String> diskRows = Arrays.asList(partitions);       
+                creator.createImage("Disk", new FilePath(build.getWorkspace(),"diskStats.properties"), new File(build.getRootDir(),"diskGraph.png"), diskRows,true, dateFormat, timezone);
+            }
             build.addAction(new ResourcesGrafAction(build));
         }
         catch(Exception ex){
@@ -115,7 +143,11 @@ public class ResourceMonitorRecorder extends Recorder{
         
         @Override
         public ResourceMonitorRecorder newInstance(StaplerRequest req, JSONObject formData) throws FormException {
-            return new ResourceMonitorRecorder();
+            int interval = formData.getInt("interval");
+            System.out.println(formData);
+            if(formData.get("dateSettings")!=null)
+                return new ResourceMonitorRecorder(interval,req.getParameter("dateFormat"), req.getParameter("timezone"));
+            return new ResourceMonitorRecorder(interval);
         }
         
     }

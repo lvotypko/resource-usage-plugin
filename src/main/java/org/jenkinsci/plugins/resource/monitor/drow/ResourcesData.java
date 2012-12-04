@@ -5,6 +5,7 @@
 package org.jenkinsci.plugins.resource.monitor.drow;
 
 import hudson.FilePath;
+
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -12,10 +13,18 @@ import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import org.jfree.chart.axis.DateAxis;
+import org.jfree.data.time.Day;
+import org.jfree.data.time.Hour;
+import org.jfree.data.time.Second;
+import org.jfree.data.time.TimeSeries;
+import org.jfree.data.time.TimeSeriesCollection;
 
 /**
  *
@@ -23,12 +32,8 @@ import java.util.TreeMap;
  */
 public class ResourcesData {
     
-    private List<String> axisX = new ArrayList<String>();
-    
-    private Map<String,List<Integer>> rowValues = new TreeMap<String,List<Integer>>();
-
-    
-    public void load(FilePath file, List<String> namesOfRows, boolean startOnSecondLine) throws IOException{
+    public TimeSeriesCollection load(FilePath file, List<String> nameSeries, boolean startOnSecondLine) throws IOException{
+        Map<String, TimeSeries> series = new HashMap<String,TimeSeries>();;
         BufferedReader pOut = new BufferedReader(new InputStreamReader(file.read()));
         if(startOnSecondLine)
             pOut.readLine();
@@ -37,42 +42,25 @@ public class ResourcesData {
         while(line!=null){
             String values[] = line.split(" ");
             Calendar calendar = new GregorianCalendar();
-            calendar.setTimeInMillis(Long.decode(values[0]));
-            axisX.add(format.format(calendar.getTime()));
+            calendar.setTimeInMillis(Long.decode(values[0]));           
             int count = 1;
-            for(String rowName: namesOfRows){
+            for(String serieName: nameSeries){
                 Double value = Double.parseDouble(values[count]);
-                List<Integer> rowNameValues = rowValues.get(rowName);
-                if(rowNameValues==null){
-                    rowNameValues = new ArrayList<Integer>();
-                    rowValues.put(rowName, rowNameValues);
+                TimeSeries serie = series.get(serieName);
+                if(serie==null){
+                    serie = new TimeSeries(serieName, Second.class);
+                    series.put(serieName, serie);
                 }
-                rowNameValues.add(value.intValue());
+                serie.add(new Second(calendar.getTime()),value);
                 count++;
             }
             line = pOut.readLine();
         }
+        TimeSeriesCollection collection = new TimeSeriesCollection();
+        for(TimeSeries serie:series.values()){
+            collection.addSeries(serie);
+        }
+        return collection;
     }
-    
-    public String getAxisXValue(int index){
-        return axisX.get(index);
-    }
-    
-    public List<String> getAxisX(){
-        return axisX;
-    }
-    
-    public Integer getValue(String axisXKey,String rowName){
-        int index = axisX.lastIndexOf(axisXKey);
-        return rowValues.get(rowName).get(index);
-    }
-    
-    public Map<String,List<Integer>> getRowValues(){
-        return rowValues;
-    }
-    
-//    public Integer getAxisYValue(int index){
-//        return axisY.get(index);
-//    }
-//    
+       
 }

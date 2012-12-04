@@ -18,10 +18,8 @@ import java.util.List;
 public class DiskUsageStatistics {
     
     private boolean firstTime = true;
-    public PrintStream log;
     
     public void getStatistic(long time, PrintStream diskData) throws IOException{
-        log.println("command");
         List<String> partitions = new ArrayList<String>();
         String command = "df -P";
         Process process = Runtime.getRuntime().exec(command);
@@ -35,7 +33,6 @@ public class DiskUsageStatistics {
             while(line.contains("  ")){
             line = line.replaceAll("  ", " ");
             }
-            log.println(line);
             String[] diskPartition = line.split(" ");
             String diskUsage = diskPartition[4];
             String partition = diskPartition[5];

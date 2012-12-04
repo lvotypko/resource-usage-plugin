@@ -5,11 +5,12 @@
 package org.jenkinsci.plugins.resource.monitor;
 
 import hudson.model.AbstractBuild;
-import hudson.model.Action;
 import hudson.model.BuildBadgeAction;
+import java.io.File;
 import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import javax.servlet.ServletException;
+import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerResponse;
 
 
 /**
@@ -18,15 +19,14 @@ import java.util.logging.Logger;
  */
 public class ResourcesGrafAction implements BuildBadgeAction{
     
-    private String path;
+    private AbstractBuild build;
     
     public ResourcesGrafAction(AbstractBuild build){
-        try {
-            this.path = build.getRootDir().getCanonicalPath();
-            System.out.println(path);
-        } catch (IOException ex) {
-            Logger.getLogger(ResourcesGrafAction.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        this.build=build;
+    }
+    
+    public AbstractBuild getBuild(){
+        return build;
     }
 
     public String getIconFileName() {
@@ -41,8 +41,19 @@ public class ResourcesGrafAction implements BuildBadgeAction{
         return "resources-using";
     }
     
-    public String getCpuGraphPath(){
-        return (path + "/cpuGraph.png");
+    public void doCpuGraph(StaplerRequest req, StaplerResponse res) throws IOException, ServletException{
+        File file = new File(build.getRootDir(),"cpuGraph.png");
+        res.serveFile(req,file.toURI().toURL());
+    }
+    
+    public void doMemGraph(StaplerRequest req, StaplerResponse res) throws IOException, ServletException{
+        File file = new File(build.getRootDir(),"memGraph.png");
+        res.serveFile(req,file.toURI().toURL());
+    }
+    
+    public void doDiskGraph(StaplerRequest req, StaplerResponse res) throws IOException, ServletException{
+        File file = new File(build.getRootDir(),"diskGraph.png");
+        res.serveFile(req,file.toURI().toURL());
     }
     
 }

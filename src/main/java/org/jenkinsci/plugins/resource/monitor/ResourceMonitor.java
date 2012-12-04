@@ -6,11 +6,8 @@ package org.jenkinsci.plugins.resource.monitor;
 
 import hudson.util.ProcessTree;
 import hudson.util.ProcessTree.OSProcess;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
@@ -25,12 +22,14 @@ public class ResourceMonitor extends Thread{
     private String path;
     private boolean stop = false;
     private String type;
+    private int interval;
     
 
-    public ResourceMonitor(String name, String path, String type){
+    public ResourceMonitor(String name, String path, String type, int interval){
         super(name);
         this.path = path;
         this.type = type;
+        this.interval=interval;
     }
     
     public void stopMonitor(){
@@ -41,19 +40,21 @@ public class ResourceMonitor extends Thread{
         RuntimeMXBean bean = ManagementFactory.getRuntimeMXBean();
         String id[] = bean.getName().split("@");
         OSProcess p = ProcessTree.get().get(Integer.parseInt(id[0]));
-        return p.getParent();       
+        return p;       
     }
     
     @Override
     public void run(){
         File file = new File(path);
+        PrintStream log = null;
         try {
+            log = new PrintStream(new File(path,"error.log"));
             PrintStream cpuStats = new PrintStream(new File(file, "cpuStats.properties"));
             PrintStream memStats = new PrintStream(new File(file, "memStats.properties"));
             PrintStream diskStats = new PrintStream(new File(file, "diskStats.properties"));
             PerformanceStatistics cpu = null;
             if("unix".equals(type)){
-                CPUStatsUnix c = new CPUStatsUnix(getCurrentProcess().getPid());                   
+                cpu = new CPUStatsUnix(getCurrentProcess().getPid());                   
             }
             else{
                 cpu = new CPUStatsWindows(getCurrentProcess().getPid());
@@ -62,12 +63,14 @@ public class ResourceMonitor extends Thread{
             while(!stop){
                 disk.getStatistic(System.currentTimeMillis(), diskStats);
                 cpu.getStatistics(System.currentTimeMillis(), cpuStats, memStats);
-                sleep(10000);
+                sleep(interval);
             }
              cpuStats.close();
              memStats.close();
              diskStats.close();
         } catch (Exception ex) {
+            log.println(ex);
+            ex.printStackTrace(log);
             Logger.getLogger(ResourceMonitor.class.getName()).log(Level.SEVERE, null, ex);
         }
     }

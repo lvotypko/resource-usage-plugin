@@ -24,11 +24,28 @@ THE SOFTWARE.
 
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:i="jelly:fmt">
-    <l:layout title="Resources using">
-    
+    <l:layout title="Resources using">  
+    <st:include it="${it.build}" page="sidepanel.jelly" />
     <l:main-panel>
-        <a href="cpuGraph.png">image</a>
-    <img src="http://localhost:8080/job/job/92/cpuGraph.png" height="700" width="500"/>
+    <table>
+        <tr><td>CPU utilization</td></tr>
+        <tr><td>
+            <img src="cpuGraph"/>
+            </td>
+        </tr>
+        <tr><td></td></tr>
+        <tr><td>Memory utilization</td></tr>
+        <tr><td>
+            <img src="memGraph"/>
+            </td>
+        </tr>
+        <tr><td></td></tr>
+        <tr><td>Disk utilization</td></tr>
+        <tr><td>
+            <img src="diskGraph"/>
+            </td>
+        </tr>
+    </table>
    </l:main-panel>
     </l:layout>
 </j:jelly>
