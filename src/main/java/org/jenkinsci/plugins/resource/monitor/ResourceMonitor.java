@@ -6,8 +6,10 @@ package org.jenkinsci.plugins.resource.monitor;
 
 import hudson.util.ProcessTree;
 import hudson.util.ProcessTree.OSProcess;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
@@ -36,11 +38,10 @@ public class ResourceMonitor extends Thread{
         stop = true;
     }
     
-    public OSProcess getCurrentProcess() throws IOException{
+    public int getCurrentProcess() throws IOException{
         RuntimeMXBean bean = ManagementFactory.getRuntimeMXBean();
         String id[] = bean.getName().split("@");
-        OSProcess p = ProcessTree.get().get(Integer.parseInt(id[0]));
-        return p;       
+        return Integer.parseInt(id[0]);   
     }
     
     @Override
@@ -54,10 +55,16 @@ public class ResourceMonitor extends Thread{
             PrintStream diskStats = new PrintStream(new File(file, "diskStats.properties"));
             PerformanceStatistics cpu = null;
             if("unix".equals(type)){
-                cpu = new CPUStatsUnix(getCurrentProcess().getPid());                   
+                if("HP-UX".equals(System.getProperty("os.name"))){
+                    cpu = new StatsHPUX(getCurrentProcess(), getHPUXMemory());
+                }
+                else{
+                    cpu = new StatsUnix(getCurrentProcess());
+                }
+                
             }
             else{
-                cpu = new CPUStatsWindows(getCurrentProcess().getPid());
+                cpu = new CPUStatsWindows(getCurrentProcess(), getFullMemoryForWindows());
             }
             DiskUsageStatistics disk = new DiskUsageStatistics();
             while(!stop){
@@ -73,5 +80,35 @@ public class ResourceMonitor extends Thread{
             ex.printStackTrace(log);
             Logger.getLogger(ResourceMonitor.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    public Long getFullMemoryForWindows() throws IOException{
+        Process process = Runtime.getRuntime().exec("systeminfo | find \"Total Physical Memory\"");
+        process.getInputStream();
+        BufferedReader pOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line = pOut.readLine();
+        while(line!=null && (!line.contains("Total Physical Memory"))){
+            line = pOut.readLine();
+        }
+        line = line.replace("Total Physical Memory","");
+            while(line.contains("  ")){
+                line = line.replaceAll("  ", " ");
+           }
+        String mem[] = line.split(" ");
+        return (Long.parseLong(mem[1].replace(",",""))) * 1025;
+    }
+    
+    public Long getHPUXMemory() throws IOException{
+        Process process = Runtime.getRuntime().exec("machinfo | grep -i memory");
+        process.getInputStream();
+        BufferedReader pOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        pOut.readLine();
+        String line = pOut.readLine();
+        while(line!=null && (!line.contains("Memory"))){
+          line = pOut.readLine();
+        }
+        String mem[] = line.trim().split("\\W+");
+        Long memory = Long.parseLong(mem[1]);
+        return memory * 1025;
     }
 }

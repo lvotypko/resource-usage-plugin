@@ -20,23 +20,11 @@ import java.util.List;
 public class CPUStatsWindows implements PerformanceStatistics{
     
     private int pidParent;
-    private Integer wholeMemory;
+    private Long wholeMemory;
     
-    public CPUStatsWindows(int pidParent) throws IOException{
+    public CPUStatsWindows(int pidParent, Long wholeMemory) {
         this.pidParent=pidParent;
-        Process process = Runtime.getRuntime().exec("systeminfo | find \"Total Physical Memory\"");
-        process.getInputStream();
-        BufferedReader pOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line = pOut.readLine();
-        while(line!=null && (!line.contains("Total Physical Memory"))){
-            line = pOut.readLine();
-        }
-        line = line.replace("Total Physical Memory","");
-            while(line.contains("  ")){
-                line = line.replaceAll("  ", " ");
-           }
-        String mem[] = line.split(" ");
-        this.wholeMemory = (Integer.parseInt(mem[1].replace(",",""))) * 1025;
+        this.wholeMemory=wholeMemory;
     }
     
     public void getStatistics(long time, PrintStream cpuData, PrintStream memoryData) throws IOException{   
@@ -49,8 +37,8 @@ public class CPUStatsWindows implements PerformanceStatistics{
         pOut.readLine();
         pOut.readLine();
         pOut.readLine();
-        Integer total = 0;
-        Integer part =0;
+        Double total = new Double(0);
+        Double part = new Double(0);
         String line = pOut.readLine();
         while(line!=null){
             while(line.contains("  ")){
@@ -67,7 +55,7 @@ public class CPUStatsWindows implements PerformanceStatistics{
         }
         total = (total / wholeMemory) * 100;
         part = (part / wholeMemory) * 100;
-        memoryData.println(time + " " + total + " " + part);
+        memoryData.println(time + " " + Math.round(total) + " " + Math.round(part));
     }
     
     public void getStatisticMemory(long time, PrintStream memoryData) throws IOException{
@@ -106,19 +94,21 @@ public class CPUStatsWindows implements PerformanceStatistics{
     public void parseCpu(long time, PrintStream cpuData, BufferedReader pOut, List<Integer> pids) throws IOException{
         Double total = new Double(0);
         Double part = new Double(0);
-        pOut.readLine();
+        //pOut.readLine();
         pOut.readLine();
         String line = pOut.readLine();
         String values[] = line.split("\",\"");
-        int countOfProcess = (values.length -1)/2;
+        int countOfProcess = ((values.length-1)/2);
+        System.out.println(countOfProcess + " " + values.length);
         for(int i=2;i<(countOfProcess);i++){
             Double id = Double.parseDouble(values[i]);
-            Double cpuUsage = Double.parseDouble(values[i+countOfProcess]);
+            Double cpuUsage = Double.parseDouble(values[(i+countOfProcess)]);
             total = total + cpuUsage;
+            System.out.println(cpuUsage + " " + id.intValue());
             if(pids.contains(id.intValue()))
                 part = part + cpuUsage;
         }
-        cpuData.println(time + " " + total.intValue() + " " + part.intValue());
+        cpuData.println(time + " " + Math.round(total) + " " + Math.round(part));
     }
     
 }
